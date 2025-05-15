@@ -45,7 +45,8 @@ def format_ingredients(ingredients):
     """Форматирование списка ингредиентов для сообщения"""
     return '\n'.join(
         [
-            f'- {ingredient["name"]}: {ingredient["amount"]} {ingredient["measurement_unit"]}'
+            f'- {ingredient["name"]}: {ingredient["amount"]} '
+            f'{ingredient["measurement_unit"]}'
             for ingredient in ingredients
         ]
     )
@@ -55,7 +56,7 @@ def format_recipe_details(recipe):
     """Форматирование детального сообщения о рецепте"""
     cooking_time = recipe['cooking_time']
     description = recipe['description']
-    ingredients = format_ingredients(recipe['ingredients'])
+    ingredients = format_ingredients(recipe['ingredients_display'])
 
     return (
         f'⏳ *Время готовки:* {cooking_time} минут\n'
