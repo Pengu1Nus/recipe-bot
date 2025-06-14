@@ -1,9 +1,8 @@
 services:
-  1   recipe_bot:
-  2     image: pengu1nus/recipe-bot:1.0
-  3     container_name: recipe_bot
-  4     restart: always
-  5     env_file: .env
-  6     ports:
-  7       - "9095:9095"
-  8
+  recipe_bot:
+    image: pengu1nus/recipe-bot:1.0
+    container_name: recipe_bot
+    restart: always
+    env_file: .env
+    ports:
+      - "9095:9095"
