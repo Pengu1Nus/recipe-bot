@@ -11,3 +11,4 @@ wheels/
 .env
 
 my_account.session
+.idea
