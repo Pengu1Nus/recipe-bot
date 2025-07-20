@@ -1,0 +1,17 @@
+line-length = 79
+indent-width = 4
+target-version = "py313"
+extend-exclude = [".venv", "venv"]
+
+[format]
+quote-style = "single"
+indent-style = "space"
+
+[lint]
+extend-select = ["I", "F", "B", "E", "N", "W", "D"]
+
+[lint.pydocstyle]
+convention = "google"
+
+[analyze]
+detect-string-imports = true
