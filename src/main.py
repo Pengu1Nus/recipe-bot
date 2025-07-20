@@ -1,5 +1,7 @@
 import os
-from random import randint
+import random
+import threading
+import time
 
 import requests
 from dotenv import load_dotenv
@@ -14,19 +16,28 @@ class RecipeBot:
         self.chat_id = os.getenv('MY_CHAT_ID')
         self.recipes_url = 'https://recipe-api.sytes.net/api/recipe/recipes/'
         self.bot = TeleBot(token=self.token)
-        self.previous_recipe = None
+        self.recipes = self._fetch_all_recipes()
+        self.previous_recipe_id = None
         self._setup_handlers()
+        self._start_periodic_refresh()
+
+    def _fetch_all_recipes(self):
+        return requests.get(self.recipes_url).json()
 
     def _setup_handlers(self):
         self.bot.message_handler(commands=['start'])(self.greet_user)
         self.bot.message_handler(commands=['Рецепт'])(self.send_recipe)
+        self.bot.message_handler(commands=['Завтрак'])(self.send_breakfast)
+        self.bot.message_handler(commands=['Десерт'])(self.send_dessert)
 
     @staticmethod
     def create_buttons():
         """Создание кнопок для взаимодействия с ботом"""
         keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
         get_random_recipe = types.KeyboardButton('/Рецепт')
-        keyboard.add(get_random_recipe)
+        get_breakfast = types.KeyboardButton('/Завтрак')
+        get_dessert = types.KeyboardButton('/Десерт')
+        keyboard.add(get_random_recipe, get_breakfast, get_dessert)
         return keyboard
 
     def greet_user(self, message):
@@ -40,19 +51,47 @@ class RecipeBot:
         )
 
     def get_random_recipe_data(self):
-        """Получение случайного рецепта из API"""
-        response = requests.get(self.recipes_url).json()
+        """
+        Получение случайного рецепта из локального списка
+        не повторяя предыдущий
+        """
+        recipes = self.recipes
+        total_recipes = len(recipes)
+
+        if total_recipes == 0:
+            return None
+        if total_recipes == 1:
+            self.previous_recipe_id = recipes[0]['id']
+            return recipes[0]
+
+        filtered = [r for r in recipes if r['id'] != self.previous_recipe_id]
+        if not filtered:
+            recipe = recipes[0]
+        else:
+            recipe = random.choice(filtered)
+        self.previous_recipe_id = recipe['id']
+        return recipe
+
+    def get_recipe_by_tag(self, tag):
+        """
+        Получение случайного рецепта по тегу, не повторяя предыдущий
+        """
+        response = requests.get(f'{self.recipes_url}?tags={tag}').json()
         total_recipes = len(response)
 
-        if total_recipes <= 1:
+        if total_recipes == 0:
+            return None
+        if total_recipes == 1:
+            self.previous_recipe_id = response[0]['id']
             return response[0]
 
-        while True:
-            random_id = randint(0, total_recipes - 1)
-            recipe = response[random_id]
-            if recipe['title'] != self.previous_recipe:
-                self.previous_recipe = recipe['title']
-                return recipe
+        filtered = [r for r in response if r['id'] != self.previous_recipe_id]
+        if not filtered:
+            recipe = response[0]
+        else:
+            recipe = random.choice(filtered)
+        self.previous_recipe_id = recipe['id']
+        return recipe
 
     @staticmethod
     def format_ingredients(ingredients):
@@ -100,6 +139,54 @@ class RecipeBot:
             text=self.format_recipe_details(random_recipe),
             parse_mode='Markdown',
         )
+
+    def send_breakfast(self, message):
+        chat = message.chat
+        breakfast_recipe = self.get_recipe_by_tag('Завтрак')
+        title = breakfast_recipe['title']
+
+        self.bot.send_photo(
+            chat_id=chat.id,
+            photo=breakfast_recipe['image'],
+            caption=f'🍽️ *Рецепт Завтрака:* {title}',
+            parse_mode='Markdown',
+        )
+        self.bot.send_message(
+            chat_id=chat.id,
+            text=self.format_recipe_details(breakfast_recipe),
+            parse_mode='Markdown',
+        )
+
+    def send_dessert(self, message):
+        chat = message.chat
+        dessert_recipe = self.get_recipe_by_tag('Десерт')
+        title = dessert_recipe['title']
+
+        self.bot.send_photo(
+            chat_id=chat.id,
+            photo=dessert_recipe['image'],
+            caption=f'🍽️ *Рецепт Десерта:* {title}',
+            parse_mode='Markdown',
+        )
+        self.bot.send_message(
+            chat_id=chat.id,
+            text=self.format_recipe_details(dessert_recipe),
+            parse_mode='Markdown',
+        )
+
+    def _start_periodic_refresh(self, interval=300):
+        """Запускает фоновое обновление рецептов каждые 300 секунд"""
+
+        def refresh_loop():
+            while True:
+                time.sleep(interval)
+                try:
+                    self.recipes = self._fetch_all_recipes()
+                except Exception as e:
+                    print(f'Ошибка обновления рецептов: {e}')
+
+        thread = threading.Thread(target=refresh_loop, daemon=True)
+        thread.start()
 
     def run(self):
         self.bot.polling()
