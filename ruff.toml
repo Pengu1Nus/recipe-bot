@@ -8,7 +8,7 @@ quote-style = "single"
 indent-style = "space"
 
 [lint]
-extend-select = ["I", "F", "B", "E", "N", "W", "D"]
+extend-select = ["I", "F", "B", "E", "N", "W"]
 
 [lint.pydocstyle]
 convention = "google"
